@@ -1,0 +1,7 @@
+name: 'nhost-self-host'
+volumes:
+  functions_node_modules: {}
+  root_node_modules: {}
+  pgdata: {}
+  mailhog: {}
+  minio: {}

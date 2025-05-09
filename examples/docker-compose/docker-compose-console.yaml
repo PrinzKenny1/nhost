@@ -1,0 +1,78 @@
+services:
+  console:
+    image: nhost/graphql-engine:v2.36.9-ce.cli-migrations-v3
+    depends_on:
+      graphql:
+        condition: service_healthy
+    entrypoint:
+      - hasura-cli
+    command:
+      - console
+      - --no-browser
+      - --endpoint=http://graphql:8080
+      - --address=0.0.0.0
+      - --console-port=9695
+      - --api-port=80
+      - --api-host=http://${GRAPHQL_URL}
+      - --console-hge-endpoint=http://${GRAPHQL_URL}
+    environment:
+      GRAPHITE_WEBHOOK_SECRET: ''
+      HASURA_GRAPHQL_ADMIN_INTERNAL_ERRORS: 'true'
+      HASURA_GRAPHQL_ADMIN_SECRET: ${GRAPHQL_ADMIN_SECRET}
+      HASURA_GRAPHQL_CONSOLE_ASSETS_DIR: /srv/console-assets
+      HASURA_GRAPHQL_CORS_DOMAIN: '*'
+      HASURA_GRAPHQL_DATABASE_URL: postgres://postgres:${POSTGRES_PASSWORD}@postgres:5432/postgres
+      HASURA_GRAPHQL_DEV_MODE: 'true'
+      HASURA_GRAPHQL_DISABLE_CORS: 'false'
+      HASURA_GRAPHQL_ENABLE_ALLOWLIST: 'false'
+      HASURA_GRAPHQL_ENABLE_CONSOLE: 'true'
+      HASURA_GRAPHQL_ENABLE_REMOTE_SCHEMA_PERMISSIONS: 'false'
+      HASURA_GRAPHQL_ENABLE_TELEMETRY: 'false'
+      HASURA_GRAPHQL_ENABLED_APIS: metadata,graphql,pgdump,config
+      HASURA_GRAPHQL_ENABLED_LOG_TYPES: startup,http-log,webhook-log,websocket-log
+      HASURA_GRAPHQL_EVENTS_HTTP_POOL_SIZE: '100'
+      HASURA_GRAPHQL_INFER_FUNCTION_PERMISSIONS: 'true'
+      HASURA_GRAPHQL_JWT_SECRET: ${JWT_SECRET}
+      HASURA_GRAPHQL_LIVE_QUERIES_MULTIPLEXED_BATCH_SIZE: '100'
+      HASURA_GRAPHQL_LIVE_QUERIES_MULTIPLEXED_REFETCH_INTERVAL: '1000'
+      HASURA_GRAPHQL_LOG_LEVEL: warn
+      HASURA_GRAPHQL_PG_CONNECTIONS: '50'
+      HASURA_GRAPHQL_PG_TIMEOUT: '180'
+      HASURA_GRAPHQL_STRINGIFY_NUMERIC_TYPES: 'false'
+      HASURA_GRAPHQL_TX_ISOLATION: read-committed
+      HASURA_GRAPHQL_UNAUTHORIZED_ROLE: public
+      HASURA_GRAPHQL_USE_PREPARED_STATEMENTS: 'true'
+      HASURA_GRAPHQL_WS_READ_COOKIE: 'false'
+    extra_hosts:
+      - host.docker.internal:host-gateway
+      - ${AUTH_URL}:host-gateway
+      - ${DB_URL}:host-gateway
+      - ${FUNCTIONS_URL}:host-gateway
+      - ${GRAPHQL_URL}:0.0.0.0
+      - ${STORAGE_URL}:host-gateway
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - timeout 1s bash -c ':> /dev/tcp/127.0.0.1/9695' || exit 1
+      timeout: 60s
+      interval: 5s
+      start_period: 60s
+    labels:
+      traefik.enable: 'true'
+      traefik.http.routers.console.entrypoints: web
+      traefik.http.routers.console.rule: Host(`${GRAPHQL_URL}`)
+      traefik.http.routers.console.service: console
+      traefik.http.routers.console.tls: 'false'
+      traefik.http.routers.migrate.entrypoints: web
+      traefik.http.routers.migrate.rule: Host(`${GRAPHQL_URL}`) && PathPrefix(`/apis/`)
+      traefik.http.routers.migrate.service: migrate
+      traefik.http.routers.migrate.tls: 'false'
+      traefik.http.services.console.loadbalancer.server.port: '9695'
+      traefik.http.services.migrate.loadbalancer.server.port: '80'
+    restart: always
+    volumes:
+      - type: bind
+        source: nhost
+        target: /app
+        read_only: false
+    working_dir: /app

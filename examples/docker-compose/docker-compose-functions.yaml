@@ -1,0 +1,50 @@
+services:
+  functions:
+    image: nhost/functions:22-1.4.0
+    environment:
+      GRAPHITE_WEBHOOK_SECRET: ''
+      HASURA_GRAPHQL_ADMIN_SECRET: ${GRAPHQL_ADMIN_SECRET}
+      HASURA_GRAPHQL_DATABASE_URL: postgres://postgres:${POSTGRES_PASSWORD}@postgres:5432/postgres
+      HASURA_GRAPHQL_GRAPHQL_URL: http://graphql:8080/v1/graphql
+      HASURA_GRAPHQL_JWT_SECRET: ${JWT_SECRET}
+    extra_hosts:
+      - host.docker.internal:host-gateway
+      - ${AUTH_URL}:host-gateway
+      - ${DB_URL}:host-gateway
+      - ${FUNCTIONS_URL}:host-gateway
+      - ${GRAPHQL_URL}:host-gateway
+      - ${STORAGE_URL}:host-gateway
+    healthcheck:
+      test:
+        - CMD
+        - wget
+        - --spider
+        - -S
+        - http://localhost:3000/healthz
+      timeout: 600s
+      interval: 5s
+      start_period: 600s
+    labels:
+      traefik.enable: 'true'
+      traefik.http.middlewares.replace-functions.replacepathregex.regex: /v1(/|$$)(.*)
+      traefik.http.middlewares.replace-functions.replacepathregex.replacement: /$$2
+      traefik.http.routers.functions.entrypoints: web
+      traefik.http.routers.functions.middlewares: replace-functions
+      traefik.http.routers.functions.rule: Host(`${FUNCTIONS_URL}`) && PathPrefix(`/v1`)
+      traefik.http.routers.functions.service: functions
+      traefik.http.routers.functions.tls: 'false'
+      traefik.http.services.functions.loadbalancer.server.port: '3000'
+    restart: always
+    volumes:
+      - type: bind
+        source: .
+        target: /opt/project
+        read_only: false
+      - type: volume
+        source: root_node_modules
+        target: /opt/project/node_modules
+        read_only: false
+      - type: volume
+        source: functions_node_modules
+        target: /opt/project/functions/node_modules
+        read_only: false

@@ -1,0 +1,59 @@
+services:
+  graphql:
+    image: nhost/graphql-engine:v2.36.9-ce
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      GRAPHITE_WEBHOOK_SECRET: ''
+      HASURA_GRAPHQL_ADMIN_INTERNAL_ERRORS: 'true'
+      HASURA_GRAPHQL_ADMIN_SECRET: ${GRAPHQL_ADMIN_SECRET}
+      HASURA_GRAPHQL_CONSOLE_ASSETS_DIR: /srv/console-assets
+      HASURA_GRAPHQL_CORS_DOMAIN: '*'
+      HASURA_GRAPHQL_DATABASE_URL: postgres://postgres:${POSTGRES_PASSWORD}@postgres:5432/postgres
+      HASURA_GRAPHQL_DEV_MODE: 'true'
+      HASURA_GRAPHQL_DISABLE_CORS: 'false'
+      HASURA_GRAPHQL_ENABLE_ALLOWLIST: 'false'
+      HASURA_GRAPHQL_ENABLE_CONSOLE: 'true'
+      HASURA_GRAPHQL_ENABLE_REMOTE_SCHEMA_PERMISSIONS: 'false'
+      HASURA_GRAPHQL_ENABLE_TELEMETRY: 'false'
+      HASURA_GRAPHQL_ENABLED_APIS: metadata,graphql,pgdump,config
+      HASURA_GRAPHQL_ENABLED_LOG_TYPES: startup,http-log,webhook-log,websocket-log
+      HASURA_GRAPHQL_EVENTS_HTTP_POOL_SIZE: '100'
+      HASURA_GRAPHQL_INFER_FUNCTION_PERMISSIONS: 'true'
+      HASURA_GRAPHQL_JWT_SECRET: ${JWT_SECRET}
+      HASURA_GRAPHQL_LIVE_QUERIES_MULTIPLEXED_BATCH_SIZE: '100'
+      HASURA_GRAPHQL_LIVE_QUERIES_MULTIPLEXED_REFETCH_INTERVAL: '1000'
+      HASURA_GRAPHQL_LOG_LEVEL: warn
+      HASURA_GRAPHQL_PG_CONNECTIONS: '50'
+      HASURA_GRAPHQL_PG_TIMEOUT: '180'
+      HASURA_GRAPHQL_STRINGIFY_NUMERIC_TYPES: 'false'
+      HASURA_GRAPHQL_TX_ISOLATION: read-committed
+      HASURA_GRAPHQL_UNAUTHORIZED_ROLE: public
+      HASURA_GRAPHQL_USE_PREPARED_STATEMENTS: 'true'
+      HASURA_GRAPHQL_WS_READ_COOKIE: 'false'
+    extra_hosts:
+      - host.docker.internal:host-gateway
+      - ${AUTH_URL}:host-gateway
+      - ${DB_URL}:host-gateway
+      - ${FUNCTIONS_URL}:host-gateway
+      - ${GRAPHQL_URL}:host-gateway
+      - ${STORAGE_URL}:host-gateway
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - curl http://localhost:8080/healthz > /dev/null 2>&1
+      timeout: 60s
+      interval: 5s
+      start_period: 60s
+    labels:
+      traefik.enable: 'true'
+      traefik.http.middlewares.replace-graphql.replacepathregex.regex: /v1(/|$$)(.*)
+      traefik.http.middlewares.replace-graphql.replacepathregex.replacement: /v1/graphql$$2
+      traefik.http.routers.hasura.entrypoints: web
+      traefik.http.routers.hasura.rule: Host(`${GRAPHQL_URL}`) && ( PathPrefix(`/v1`) || PathPrefix(`/v2`) || PathPrefix(`/api/`) || PathPrefix(`/console/assets`) )
+      traefik.http.routers.hasura.service: hasura
+      traefik.http.routers.hasura.tls: 'false'
+      traefik.http.services.graphql.loadbalancer.server.port: '8080'
+      traefik.http.services.hasura.loadbalancer.server.port: '8080'
+    restart: always

@@ -1,0 +1,40 @@
+services:
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_DB: postgres
+      POSTGRES_DEV_INSECURE: 'true'
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_USER: postgres
+    extra_hosts:
+      - host.docker.internal:host-gateway
+      - ${AUTH_URL}:host-gateway
+      - ${DB_URL}:host-gateway
+      - ${FUNCTIONS_URL}:host-gateway
+      - ${GRAPHQL_URL}:host-gateway
+      - ${STORAGE_URL}:host-gateway
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - pg_isready -U postgres
+        - -d
+        - postgres
+        - -q
+      timeout: 60s
+      interval: 5s
+      start_period: 60s
+    ports:
+      - mode: ingress
+        target: 5432
+        published: '5432'
+        protocol: tcp
+    restart: always
+    volumes:
+      - type: volume
+        source: pgdata
+        target: /var/lib/postgresql/
+        read_only: false
+      - type: bind
+        source: ./initdb.d
+        target: /docker-entrypoint-initdb.d
+        read_only: true

@@ -1,0 +1,30 @@
+services:
+  traefik:
+    image: traefik:v3.1
+    command:
+      - --api.insecure=true
+      - --providers.docker=true
+      - --providers.file.directory=/opt/traefik
+      - --providers.file.watch=true
+      - --providers.docker.exposedbydefault=false
+      - --providers.docker.constraints=Label(`com.docker.compose.project`,`nhost-self-host`)
+      - --entrypoints.web.address=:80
+    extra_hosts:
+      - host.docker.internal:host-gateway
+      - ${AUTH_URL}:host-gateway
+      - ${DB_URL}:host-gateway
+      - ${FUNCTIONS_URL}:host-gateway
+      - ${GRAPHQL_URL}:host-gateway
+      - ${STORAGE_URL}:host-gateway
+    ports:
+      - mode: ingress
+        target: 80
+        published: '80'
+        protocol: tcp
+    restart: always
+    volumes:
+      - ./traefik:/opt/traefik
+      - type: bind
+        source: /var/run/docker.sock
+        target: /var/run/docker.sock
+        read_only: true
